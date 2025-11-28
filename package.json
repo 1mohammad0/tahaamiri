@@ -1,0 +1,12 @@
+{
+  "name": "taha-amiri-site",
+  "version": "1.0.0",
+  "description": "Static front + express backend for taha-amiri.onrender.com",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
