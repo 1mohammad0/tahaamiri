@@ -1,1 +1,162 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>طاها امیری</title>
+<style>
+  body{font-family:sans-serif;background:#eef1f7;margin:0;padding:20px;direction:rtl}
+  .container{max-width:900px;margin:0 auto}
+  .card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.08);margin-bottom:16px;text-align:center}
+  img{max-width:100%;border-radius:10px}
+  .row{display:flex;gap:15px;flex-wrap:wrap;justify-content:space-between}
+  .mini{flex:1 1 30%;background:#fff;border-radius:12px;padding:10px;box-shadow:0 4px 14px rgba(0,0,0,0.06)}
+  .btn{padding:10px 16px;border-radius:8px;border:none;cursor:pointer;color:#fff;margin:6px}
+  .like{background:#0d6efd}
+  .dislike{background:#dc3545}
+  .comments{margin-top:10px;text-align:right}
+  .comment-card{background:#fff;padding:10px;border-radius:8px;margin-top:10px;box-shadow:0 2px 10px rgba(0,0,0,0.06);position:relative}
+  .comment-actions{position:absolute;left:10px;top:10px}
+  .comment-actions button{margin-left:6px;padding:6px;border-radius:6px;border:none;cursor:pointer}
+  input[type="text"]{width:70%;padding:10px;border-radius:8px;border:1px solid #ccc}
+  @media(max-width:700px){ .row{flex-direction:column} .mini{width:100%} }
+</style>
+</head>
+<body>
+  <div class="container">
+    <!-- وسط -->
+    <div class="card">
+      <img src="center.jpg" alt="طاها امیری">
+      <h2>طاها امیری</h2>
+
+      <div style="margin-top:10px">
+        <button class="btn like" id="likeBtn">👍 لایک</button>
+        <button class="btn dislike" id="dislikeBtn">👎 دیس‌لایک</button>
+      </div>
+
+      <p>لایک: <span id="likes">0</span> — دیسلایک: <span id="dislikes">0</span></p>
+    </div>
+
+    <!-- چپ و راست -->
+    <div class="row">
+      <div class="mini">
+        <img src="left.jpg" alt="نوشابه">
+        <p>به درخواست طاها امیری نوشابه‌ی سیاه</p>
+      </div>
+
+      <div class="mini">
+        <img src="right.jpg" alt="مالک">
+        <p>طاها امیری مالک 90% زمین‌های ایران</p>
+      </div>
+    </div>
+
+    <!-- نظرات -->
+    <div class="card">
+      <h3>ثبت نظر</h3>
+      <div style="margin-top:10px">
+        <input type="text" id="commentInput" placeholder="نظر خود را بنویسید...">
+        <button class="btn like" id="sendComment">ارسال</button>
+      </div>
+
+      <div id="comments" class="comments"></div>
+    </div>
+  </div>
+
+<script>
+  // تو اینجا از مسیرهای نسبی استفاده شده — وقتی روی Render آپلود کنی، همین دامنه سرویس‌دهی می‌کنه.
+  async function loadData(){
+    try{
+      const r = await fetch('/data');
+      const data = await r.json();
+      document.getElementById('likes').innerText = data.likes || 0;
+      document.getElementById('dislikes').innerText = data.dislikes || 0;
+
+      const commentsDiv = document.getElementById('comments');
+      commentsDiv.innerHTML = '';
+      (data.comments || []).forEach((c, i) => {
+        const card = document.createElement('div');
+        card.className = 'comment-card';
+        card.innerHTML = `
+          <div style="white-space:pre-wrap;">${escapeHtml(c.text)}</div>
+        `;
+        const actions = document.createElement('div');
+        actions.className = 'comment-actions';
+        // ویرایش
+        const editBtn = document.createElement('button');
+        editBtn.innerText = 'ویرایش';
+        editBtn.style.background = '#198754';
+        editBtn.style.color = 'white';
+        editBtn.onclick = async () => {
+          const newText = prompt('متن جدید را وارد کنید:', c.text);
+          if (!newText) return;
+          await fetch('/edit-comment', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ index: i, newText })
+          });
+          loadData();
+        };
+        // حذف
+        const delBtn = document.createElement('button');
+        delBtn.innerText = 'حذف';
+        delBtn.style.background = '#dc3545';
+        delBtn.style.color = 'white';
+        delBtn.onclick = async () => {
+          if (!confirm('آیا مطمئن هستید؟')) return;
+          await fetch('/delete-comment', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ index: i })
+          });
+          loadData();
+        };
+
+        actions.appendChild(editBtn);
+        actions.appendChild(delBtn);
+        card.appendChild(actions);
+        commentsDiv.appendChild(card);
+      });
+    }catch(e){
+      console.error(e);
+    }
+  }
+
+  // فرار از HTML در متن نظر
+  function escapeHtml(unsafe){
+    return unsafe
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
+
+  document.getElementById('likeBtn').onclick = async () => {
+    await fetch('/like', { method: 'POST' });
+    loadData();
+  };
+
+  document.getElementById('dislikeBtn').onclick = async () => {
+    await fetch('/dislike', { method: 'POST' });
+    loadData();
+  };
+
+  document.getElementById('sendComment').onclick = async () => {
+    const input = document.getElementById('commentInput');
+    const text = input.value.trim();
+    if (!text) return;
+    await fetch('/comment', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text })
+    });
+    input.value = '';
+    loadData();
+  };
+
+  // بارگذاری اولیه
+  loadData();
+</script>
+</body>
+</html>
 
